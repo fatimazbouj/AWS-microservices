@@ -1,0 +1,87 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: fatimazahrabouj
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: categoryService
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  # Uncomment to easily set up a custom domain. Read the docs for more details:
+  # https://www.serverless.com/framework/docs/providers/aws/guide/domains
+  # domain: api.example.com
+  environment:
+    BUCKET_NAME: category-images-fatima-zahra-bucket-123-dev
+    DYNAMO_TABLE_NAME: Categories
+    SNS_TOPIC_ARN: arn:aws:sns:us-east-1:520557389016:CategoryCleanUpTopic
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+        - s3:DeleteObject
+      Resource:
+        - arn:aws:s3:::category-images-fatima-zahra-bucket-123-dev/*
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:DeleteItem
+        - dynamodb:Scan
+        - dynamodb:UpdateItem
+      Resource:
+        - arn:aws:dynamodb:us-east-1:520557389016:table/Categories
+    - Effect: Allow
+      Action:
+          - sns:Publish
+      Resource:
+          - arn:aws:sns:us-east-1:520557389016:CategoryCleanUpTopic
+
+resources:
+  Resources:
+    CategoryImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: category-images-fatima-zahra-bucket-123-dev
+
+    CategoryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Categories
+        AttributeDefinitions:
+          - AttributeName: fileName
+            AttributeType: S
+        KeySchema:
+          - AttributeName: fileName
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+    CategoryCleanUpTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: CategoryCleanUpTopic
+    CategoryCleanUpSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: arn:aws:sns:us-east-1:520557389016:CategoryCleanUpTopic
+        Protocol: email
+        Endpoint: fatima.z.bouj@gmail.com
+
+
+
+functions:
+  getUploadUrl:
+    handler: handlers/getUploadUrl.getUploadUrl
+    events:
+      - httpApi:
+          path: /upload-url
+          method: post
+  updateCategoryImage:
+    handler: handlers/updateCategoryImage.updateCategoryImage
+    events:
+      - s3:
+          bucket: category-images-fatima-zahra-bucket-123-dev #name of the S3 bucket
+          event: s3:ObjectCreated:Put #trigger event when an object is created in the bucket
+          existing: true #ensures the function works with an existing bucket
+  cleanUpCategories:
+    handler: handlers/cleanUpCategories.cleanUpCategories
+    events:
+      - schedule: rate(2 minutes) #runs every 2 minutes to clean up old images

@@ -1,0 +1,61 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: fatimazahrabouj
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: bannerService
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  # Uncomment to easily set up a custom domain. Read the docs for more details:
+  # https://www.serverless.com/framework/docs/providers/aws/guide/domains
+  # domain: api.example.com
+  environment:
+    BUCKET_NAME: banner-images-bucket-fatima-zahra-dev-123-new # Change to your bucket name
+    DYNAMODB_TABLE_NAME: Banners
+  iamRoleStatements:
+    - Effect: Allow #grant permissions to Lambda functions to access the S3 bucket
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+        - s3:ListBucket
+      Resource:
+        - arn:aws:s3:::banner-images-bucket-fatima-zahra-dev-123-new/* # Change to your bucket ARN
+    - Effect: Allow #grant permissions to Lambda functions to access the DynamoDB table
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:Scan
+      Resource: arn:aws:dynamodb:us-east-1:520557389016:table/Banners # Change to your table ARN
+resources:
+  Resources:
+    BannerImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: banner-images-bucket-fatima-zahra-dev-123-new # Change to a unique name
+    BannersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Banners
+        AttributeDefinitions:
+          - AttributeName: fileName
+            AttributeType: S
+        KeySchema:
+          - AttributeName: fileName
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+functions:
+  uploadBanner:
+    handler: handlers/uploadBanner.getUploadBannerUrl
+    events:
+      - httpApi:
+          path: /upload-banner
+          method: post
+  confirmUpload:
+    handler: handlers/confirmUpload.confirmUpload
+    events: #define the event that triggers this function
+      - s3:
+            bucket: banner-images-bucket-fatima-zahra-dev-123-new # Change to your bucket name
+            event: s3:ObjectCreated:Put # Trigger on object creation (upload)
+            existing: true # Set to true if the bucket already exists
