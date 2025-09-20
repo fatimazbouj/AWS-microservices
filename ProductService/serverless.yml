@@ -9,7 +9,12 @@ provider:
   # Uncomment to easily set up a custom domain. Read the docs for more details:
   # https://www.serverless.com/framework/docs/providers/aws/guide/domains
   # domain: api.example.com
-
+  authorizers:
+    myCognitoAuthorizer:
+      identitySource: method.request.header.Authorization #extract jwt token from the Authorization header
+      issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_MueruvOAq #Token signing key URL
+      audience:
+        - 4ohbb7ovv7jrnlc3qrmjs55qlv #App client id (ensure the token comes from the correct app)
 
 resources:
   Resources:
@@ -33,10 +38,8 @@ functions:
   hello:
     handler: handler.hello
     events:
-      - http:
+      - httpApi:
           path: /
           method: get
           authorizer:
-            type: COGNITO_USER_POOLS
-            arn: arn:aws:cognito-idp:us-east-1:520557389016:userpool/us-east-1_MueruvOAq
-            identitySource: method.request.header.Authorization
+            name: myCognitoAuthorizer
