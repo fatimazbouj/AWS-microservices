@@ -9,12 +9,38 @@ provider:
   # Uncomment to easily set up a custom domain. Read the docs for more details:
   # https://www.serverless.com/framework/docs/providers/aws/guide/domains
   # domain: api.example.com
-  authorizers:
-    myCognitoAuthorizer:
-      identitySource: method.request.header.Authorization #extract jwt token from the Authorization header
-      issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_MueruvOAq #Token signing key URL
-      audience:
-        - 4ohbb7ovv7jrnlc3qrmjs55qlv #App client id (ensure the token comes from the correct app)
+  environment:
+    BUCKET_NAME: product-images-fatima-zahra-bucket-123-dev
+    DYNAMO_TABLE_NAME: Products
+    SNS_TOPIC_ARN: arn:aws:sns:us-east-1:520557389016:ProductCleanUpTopic
+  httpApi:
+    authorizers:
+      myCognitoAuthorizer:
+        identitySource: $request.header.Authorization #extract jwt token from the Authorization header
+        issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_MueruvOAq #Token signing key URL
+        audience:
+          - 4ohbb7ovv7jrnlc3qrmjs55qlv #App client id (ensure the token comes from the correct app)
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+        - s3:DeleteObject
+      Resource:
+        - arn:aws:s3:::product-images-fatima-zahra-bucket-123-dev/*
+    - Effect: Allow
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:DeleteItem
+        - dynamodb:Scan
+        - dynamodb:UpdateItem
+      Resource:
+        - arn:aws:dynamodb:us-east-1:520557389016:table/Products
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: arn:aws:sns:us-east-1:520557389016:ProductCleanUpTopic
 
 resources:
   Resources:
@@ -33,13 +59,40 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: product-images-fatima-zahra-bucket-123-dev
+    ProductCleanUpTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ProductCleanUpTopic
+    ProductCleanUpSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: arn:aws:sns:us-east-1:520557389016:ProductCleanUpTopic
+        Protocol: email
+        Endpoint: fatima.z.bouj@gmail.com
 
 functions:
-  hello:
-    handler: handler.hello
+  getUploadUrl:
+    handler: handlers/getUploadUrl.getUploadUrl
     events:
       - httpApi:
-          path: /
-          method: get
+          path: /get-upload-url
+          method: post
           authorizer:
             name: myCognitoAuthorizer
+  getApprovedProducts:
+    handler: handlers/getApprovedProducts.getApprovedProducts
+    events:
+      - httpApi:
+          path: /get-approved-products
+          method: get
+  updateProductImage:
+    handler: handlers/updateProductImage.updateProductImage
+    events:
+      - s3:
+          bucket: product-images-fatima-zahra-bucket-123-dev #name of the S3 bucket
+          event: s3:ObjectCreated:Put #trigger event when an object is created in the bucket
+          existing: true #ensures the function works with an existing bucket
+  cleanUpProducts:
+    handler: handlers/cleanUpProducts.cleanUpProducts
+    events:
+      - schedule: rate(2 minutes) #runs every 2 minutes to clean up old images

@@ -74,6 +74,12 @@ functions:
       - httpApi:
           path: /upload-url
           method: post
+  getAllCategories:
+    handler: handlers/getAllCategories.getAllCategories
+    events:
+      - httpApi:
+          path: /get-categories
+          method: get
   updateCategoryImage:
     handler: handlers/updateCategoryImage.updateCategoryImage
     events:

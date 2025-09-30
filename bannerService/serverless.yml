@@ -52,6 +52,12 @@ functions:
       - httpApi:
           path: /upload-banner
           method: post
+  getAllBanners:
+    handler: handlers/getAllBanners.getAllBanners
+    events:
+      - httpApi:
+          path: /get-all-banners
+          method: get
   confirmUpload:
     handler: handlers/confirmUpload.confirmUpload
     events: #define the event that triggers this function

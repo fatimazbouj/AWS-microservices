@@ -1,0 +1,69 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: fatimazahrabouj
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: orderService
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  # Uncomment to easily set up a custom domain. Read the docs for more details:
+  # https://www.serverless.com/framework/docs/providers/aws/guide/domains
+  # domain: api.example.com
+  environment:
+        DYNAMODB_TABLE_NAME: Orders
+        SQS_QUEUE_URL: https://sqs.us-east-1.amazonaws.com/520557389016/OrderQueue
+  iamRoleStatements:
+    - Effect: Allow #grant permissions to Lambda functions to access the DynamoDB table
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:Scan
+        - sqs:SendMessage
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+      Resource:
+        - Fn::GetAtt: [OrdersTable, Arn]
+        - Fn::GetAtt: [OrderQueue, Arn]
+  httpApi:
+    authorizers:
+      myCognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_MueruvOAq
+        audience:
+          - 4ohbb7ovv7jrnlc3qrmjs55qlv
+
+resources:
+  Resources:
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Orders
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+    OrderQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: OrderQueue
+
+functions:
+  placeOrder:
+    handler: handlers/placeOrder.placeOrder
+    events:
+      - httpApi:
+          path: /create-order
+          method: post
+          authorizer: myCognitoAuthorizer
+  processOrder:
+    handler: handlers/processOrder.processOrder
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [OrderQueue, Arn]
